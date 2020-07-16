@@ -6,6 +6,8 @@ Amazon Aurora is a MySQL and PostgreSQL-compatible relational database built for
 
 A [list of metrics](#MetricDefinitions) emitted by this solution is provided below, along with a description of what to watch for in relation to each metric.
 
+This project is a fork of the [amazon-redshift-monitoring](https://github.com/awslabs/amazon-redshift-monitoring) solution. Many thanks to the developers of the original project for providing a solid, extensible foundation on which to build.
+
 ## <a name="PreReqs"></a>Pre-Requisites
 
 Follow the steps below to prepare your environment to run the Aurora Postgres Enhanced Monitoring solution:
