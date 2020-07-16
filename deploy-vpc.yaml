@@ -1,0 +1,393 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Parameters:
+  ClusterName:
+    Default: my-aurora-postgres-cluster
+    Description: Cluster Name
+    Type: String
+    AllowedPattern: .*
+  DatabaseUser:
+    Default: My DB User
+    Description: Name of the database user to connect to
+    Type: String
+    AllowedPattern: .*
+  EncryptedPassword:
+    Default: Base64 Encoded Encrypted Password
+    Description: Password encrypted with AWS KMS
+    Type: String
+    AllowedPattern: .*
+  KmsKeyARN:
+    Default: arn:aws:kms:us-east-1:123456789012:key/MyKey
+    Description: KMS Key ARN used to decrypt the password
+    Type: String
+    AllowedPattern: arn:aws:kms:[a-zA-Z0-9-]+\:\d{12}:key\/.*
+  ClusterEndpoint:
+    Default: my-aurora-postgres-cluster.XXXXXXXXXXXX.<region>.rds.amazonaws.com
+    Description: Cluster Endpoint Address
+    Type: String
+    AllowedPattern: .*\.rds\.amazonaws\.com$
+  ClusterPort:
+    Default: 5432
+    Description: Database Port
+    Type: Number
+    MinValue: 1024
+    MaxValue: 65535
+  DatabaseName:
+    Default: mydb
+    Description: Database Name to connect to
+    Type: String
+    AllowedPattern: .*
+  SecurityGroups:
+    Default: mygroup1, mygroup2
+    Description: Security Groups as CSV list to use for the deployed function (may be required for Aurora Postgres security policy)
+    Type: CommaDelimitedList
+  SubnetIds:
+    Default: subnet1, subnet2, subnet3
+    Description: List of private Subnets in VPC in which the function will egress network connections
+    Type: CommaDelimitedList
+  ScheduleFrequency:
+    Default: 5 minutes
+    Description: Frequency with which to run your lambda function
+    Type: String
+    AllowedValues:
+      - 1 hour
+      - 30 minutes
+      - 10 minutes
+      - 5 minutes
+      - 1 minute
+Resources:
+  ScheduledFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.6
+      CodeUri:
+        Bucket: !Sub paramsey-cfn-${AWS::Region}
+        Key: AuroraPostgresAdvancedMonitoring/aurora-postgres-advanced-monitoring-1.0.zip
+      MemorySize: 192
+      Timeout: 300
+      Tags:
+        Name: AuroraPostgresAdvancedMonitoring
+      Role: !GetAtt ScheduledServiceIAMRole.Arn
+      VpcConfig:
+        SecurityGroupIds:
+          !Ref SecurityGroups
+        SubnetIds:
+          !Ref SubnetIds
+      Events:
+        Timer:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub 'rate(${ScheduleFrequency})'
+            Input: 
+              !Sub | 
+                {
+                  "DatabaseUser":"${DatabaseUser}",
+                  "EncryptedPassword":"${EncryptedPassword}",
+                  "ClusterName":"${ClusterName}",
+                  "ClusterEndpoint":"${ClusterEndpoint}",
+                  "ClusterPort":"${ClusterPort}",
+                  "DatabaseName":"${DatabaseName}",
+                  "ScheduleFrequency":"${ScheduleFrequency}"
+                }
+  ScheduledServiceIAMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+        RoleName: "LambdaAuroraPGMonitoringRole"
+        Path: "/"
+        ManagedPolicyArns:
+            - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            -
+              Sid: "AllowLambdaServiceToAssumeRole"
+              Effect: "Allow"
+              Action:
+                - "sts:AssumeRole"
+              Principal:
+                Service:
+                  - "lambda.amazonaws.com"
+        Policies:
+          -
+            PolicyName: "LambdaAuroraPGMonitoringPolicy"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                -
+                  Effect: "Allow"
+                  Action:
+                    - "cloudwatch:PutMetricData"
+                  Resource: "*"
+                -
+                  Effect: "Allow"
+                  Action:                
+                    - "kms:Decrypt"
+                  Resource: !Ref KmsKeyARN
+  Dashboard:
+    Type: "AWS::CloudWatch::Dashboard"
+    Properties:
+      DashboardName: AuroraPostgresAdvancedMonitoringDashboard
+      DashboardBody: !Sub |
+                        {
+                          "widgets": [
+                              {
+                                  "type": "metric",
+                                  "x": 0,
+                                  "y": 0,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "ActiveConnections", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 6,
+                                  "y": 0,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "BlockedQueries", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 12,
+                                  "y": 0,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "CloudwatchMetricsExported", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 18,
+                                  "y": 0,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "DatabaseAge", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 0,
+                                  "y": 6,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "DBSize", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 6,
+                                  "y": 6,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "IdleConnections", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 12,
+                                  "y": 6,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "IndexHitRatio", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 18,
+                                  "y": 6,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "TableHitRatio", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 0,
+                                  "y": 12,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "TotalDelete", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 6,
+                                  "y": 12,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "TotalHotUpdate", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 12,
+                                  "y": 12,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "TotalIndexBloat", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 18,
+                                  "y": 12,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "TotalInsert", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 0,
+                                  "y": 18,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "TotalTableBloat", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 6,
+                                  "y": 18,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "TotalUpdate", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 12,
+                                  "y": 18,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "UnusedIndexes", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 18,
+                                  "y": 18,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "VacuumRunning", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              },
+                              {
+                                  "type": "metric",
+                                  "x": 0,
+                                  "y": 24,
+                                  "width": 6,
+                                  "height": 6,
+                                  "properties": {
+                                      "view": "timeSeries",
+                                      "stacked": false,
+                                      "metrics": [
+                                          [ "AuroraPostgres", "VacuumToPreventWraparound", "ClusterIdentifier", "${ClusterName}" ]
+                                      ],
+                                      "region": "${AWS::Region}"
+                                  }
+                              }
+                          ]
+                        }

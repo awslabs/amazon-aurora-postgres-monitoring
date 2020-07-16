@@ -1,0 +1,105 @@
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+ * Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+ * Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+ * Neither the name of the pgpasslib nor the names of its
+   contributors may be used to endorse or promote products derived from this
+   software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Description: pgpasslib
+        =========
+        pgpasslib is a library for retrieving passwords from a PostgreSQL password
+        file, either from a location specified in the ``PGPASSFILE`` environment
+        variable or in the ``.pgpass`` file in the current user's home directory.
+        
+        |Version| |Downloads| |Status| |Coverage| |CodeClimate|
+        
+        Installation
+        ------------
+        pgpasslib may be installed via the Python package index with the tool of
+        your choice. I prefer pip:
+        
+        .. code:: bash
+        
+            pip install pgpasslib
+        
+        Documentation
+        -------------
+        
+        https://pgpasslib.readthedocs.org
+        
+        Requirements
+        ------------
+        There are no requirements outside of the Python standard library.
+        
+        Example
+        -------
+        The following example will attempt to get the password for PostgreSQL running
+        on ``localhost:5432`` to the ``postgres`` database as the ``postgres`` user.
+        
+        .. code:: python
+        
+            import pgpasslib
+        
+            password = pgpasslib.getpass('localhost', 5432, 'postgres', 'postgres')
+            if not password:
+                raise ValueError('Did not find a password in the .pgpass file')
+        
+        Version History
+        ---------------
+        Available at https://pgpasslib.readthedocs.org
+        
+        .. |Version| image:: https://img.shields.io/pypi/v/pgpasslib.svg?
+           :target: https://pypi.python.org/pypi/pgpasslib
+        
+        .. |Status| image:: https://img.shields.io/travis/gmr/pgpasslib.svg?
+           :target: https://travis-ci.org/gmr/pgpasslib
+        
+        .. |Coverage| image:: https://img.shields.io/codecov/c/github/gmr/pgpasslib.svg?
+           :target: https://codecov.io/github/gmr/pgpasslib?branch=master
+        
+        .. |Downloads| image:: https://img.shields.io/pypi/dm/pgpasslib.svg?
+           :target: https://pypi.python.org/pypi/pgpasslib
+        
+        .. |CodeClimate| image:: https://codeclimate.com/github/gmr/pgpasslib/badges/gpa.svg
+           :target: https://codeclimate.com/github/gmr/pgpasslib
+           :alt: Code Climate
+        
+Keywords: postgresql
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Database
+Classifier: Topic :: Software Development :: Libraries

@@ -1,0 +1,8 @@
+[
+	{
+		"query": "select count(9) from example",
+		"name":"ExampleUserQuery",
+		"unit":"Count",
+		"type":"value"
+	}
+]
